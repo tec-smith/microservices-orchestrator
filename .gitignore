@@ -1,0 +1,18 @@
+# Build output
+/bin/
+/dist/
+
+# Test output
+coverage.out
+coverage.html
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local environment
+.env
+.env.*
+!.env.example

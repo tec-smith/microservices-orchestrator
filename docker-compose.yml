@@ -1,0 +1,48 @@
+# A demo stack: the orchestrator plus three instances of the echo service.
+#   docker compose up --build
+#   curl localhost:8080/echo/hello
+services:
+  orchestrator:
+    build: .
+    image: microservices-orchestrator
+    ports:
+      - "8500:8500" # registry API
+      - "8080:8080" # gateway
+    environment:
+      HEALTH_INTERVAL: 5s
+      LOG_FORMAT: json
+      # Demo settings, so weights and circuit breaking are easy to see.
+      LB_STRATEGY: weighted
+      BREAKER_FAILURES: 3
+      BREAKER_TIMEOUT: 10s
+
+  echo-1: &echo
+    build: .
+    image: microservices-orchestrator
+    depends_on: [orchestrator]
+    entrypoint: ["echo-service"]
+    command:
+      - -id=echo-1
+      - -advertise=http://echo-1:9000
+      - -registry=http://orchestrator:8500
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9000/health"]
+      interval: 10s
+
+  echo-2:
+    <<: *echo
+    command:
+      - -id=echo-2
+      - -advertise=http://echo-2:9000
+      - -registry=http://orchestrator:8500
+      - -weight=2
+
+  # Fails three quarters of its requests, so you can watch its circuit open
+  # in localhost:8080/_orchestrator/circuits.
+  echo-3:
+    <<: *echo
+    command:
+      - -id=echo-3
+      - -advertise=http://echo-3:9000
+      - -registry=http://orchestrator:8500
+      - -fail-rate=0.75

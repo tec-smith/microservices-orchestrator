@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Format, vet and tests (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # The minimum version in go.mod, and the latest stable release.
+        go: ["1.22", "stable"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+          # No third-party modules, so there is nothing to cache.
+          cache: false
+      - run: make fmt-check
+      - run: make vet
+      - run: make coverage
+      - uses: actions/upload-artifact@v7
+        if: always() && matrix.go == 'stable'
+        with:
+          name: coverage
+          path: coverage.html
+          retention-days: 7
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t microservices-orchestrator .
